@@ -82,7 +82,7 @@ const BTN={sched:'save-sched',thermo:'save-th',angles:'save-sv'};
 function sendSave(kind,payload){
   if(!client||!client.connected){$(BTN[kind]).textContent='Not connected, try again';return}
   pending[kind]={payload,t:Date.now()};
-  $(BTN[kind]).textContent='Saving‚Ä¶';
+  $(BTN[kind]).textContent='Saving\u2026';
   client.publish('heater/cmd/'+kind,payload,{qos:1},err=>{if(err)$(BTN[kind]).textContent='Send failed, try again'});
   setTimeout(()=>{if(pending[kind]&&pending[kind].payload===payload){delete pending[kind];$(BTN[kind]).textContent='Sent, but the device did not confirm';setTimeout(()=>$(BTN[kind]).textContent=LABEL[kind],4000)}},8000);
 }
@@ -90,7 +90,7 @@ function confirmed(kind,got){
   const p=pending[kind];if(!p)return false;
   const norm=x=>x.split(/[;,]/).map(Number).join(',');
   if(norm(p.payload)!==norm(got))return false;
-  delete pending[kind];$(BTN[kind]).textContent='Saved ‚úì (device confirmed)';
+  delete pending[kind];$(BTN[kind]).textContent='Saved \u2713 (device confirmed)';
   setTimeout(()=>$(BTN[kind]).textContent=LABEL[kind],3000);return true;
 }
 function pad(n){return String(n).padStart(2,'0')}
@@ -157,7 +157,7 @@ function start(l){
   client=mqtt.connect('wss://'+l.host+':8084/mqtt',{username:l.user,password:l.pass,reconnectPeriod:3000});
   client.on('connect',()=>{$('conn').textContent='connected to broker';client.subscribe('heater/status')});
   client.on('error',e=>{$('conn').textContent='error: '+e.message});
-  client.on('close',()=>{$('conn').textContent='disconnected, retrying‚Ä¶'});
+  client.on('close',()=>{$('conn').textContent='disconnected, retrying\u2026'});
   client.on('message',(t,m)=>{try{render(JSON.parse(m.toString()))}catch(e){}});
 }
 setInterval(()=>{if(lastSeen&&Date.now()-lastSeen>15000&&client&&client.connected)$('conn').textContent='broker OK, device offline (last update '+Math.round((Date.now()-lastSeen)/1000)+'s ago)'},2000);
