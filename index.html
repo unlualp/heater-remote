@@ -47,13 +47,14 @@ small{color:var(--mut)}
 <div class="card"><b>Schedule</b><br><small>Valve opens at the start time and closes after the duration.</small>
 <div id="slots"></div>
 <button class="on" id="save-sched" onclick="saveSched()" style="width:100%;margin-top:10px">Save schedule</button></div>
-<div class="card"><b>Thermostat</b><br><small>Opens when the room is colder than the minimum, only inside the daytime window.</small>
+<div class="card"><b>Thermostat</b><br><small>Opens when the room is colder than the minimum, only between the active times.</small>
 <label class="chk"><input id="th-on" type="checkbox"> Enabled</label>
 <div class="grid">
 <label>Minimum &deg;C<input id="th-min" type="number" step="0.5" min="5" max="35"></label>
 <label>Closes again at +&deg;C<input id="th-hyst" type="number" step="0.5" min="0.5" max="5"></label>
-<label>Daytime from (hour)<input id="th-from" type="number" min="0" max="23"></label>
-<label>Daytime until (hour)<input id="th-to" type="number" min="1" max="24"></label></div>
+<label>Active from<input id="th-from" type="time"></label>
+<label>Active until<input id="th-to" type="time"></label></div>
+<small>To run overnight, set "from" later than "until" (for example 22:00 to 06:00). Same time in both means all day.</small>
 <button class="on" id="save-th" onclick="saveThermo()" style="width:100%;margin-top:10px">Save thermostat</button></div>
 <button onclick="logout()" style="width:100%;background:transparent;color:var(--mut)">Change login</button>
 </div>
@@ -115,12 +116,14 @@ function saveSched(){
   }).join(';');
   sendSave('sched',out);dirtyS=false;
 }
+function hm(min){min=Number(min);return pad(Math.floor(min/60))+':'+pad(min%60)}
+function toMin(t){const [h,m]=(t||'00:00').split(':').map(Number);return h*60+m}
 function drawThermo(str){
   const [on,mn,sh,eh,hy]=str.split(',');
-  $('th-on').checked=on==='1';$('th-min').value=mn;$('th-from').value=sh;$('th-to').value=eh;$('th-hyst').value=hy;
+  $('th-on').checked=on==='1';$('th-min').value=mn;$('th-from').value=hm(sh);$('th-to').value=hm(eh);$('th-hyst').value=hy;
 }
 function saveThermo(){
-  const v=[$('th-on').checked?1:0,$('th-min').value,$('th-from').value,$('th-to').value,$('th-hyst').value].join(',');
+  const v=[$('th-on').checked?1:0,$('th-min').value,toMin($('th-from').value),toMin($('th-to').value),$('th-hyst').value].join(',');
   sendSave('thermo',v);dirtyT=false;
 }
 ['th-on','th-min','th-from','th-to','th-hyst'].forEach(id=>$(id).addEventListener('input',()=>dirtyT=true));
