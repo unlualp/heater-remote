@@ -56,6 +56,11 @@ small{color:var(--mut)}
 <label>Active until<input id="th-to" type="time"></label></div>
 <small>To run overnight, set "from" later than "until" (for example 22:00 to 06:00). Same time in both means all day.</small>
 <button class="on" id="save-th" onclick="saveThermo()" style="width:100%;margin-top:10px">Save thermostat</button></div>
+<div class="card"><b>Servo position</b><br><small>Angle (0&ndash;180&deg;) for the closed and open valve. Moves the valve immediately when saved.</small>
+<div class="grid">
+<label>Closed &deg;<input id="sv-closed" type="number" min="0" max="180" step="1"></label>
+<label>Open &deg;<input id="sv-open" type="number" min="0" max="180" step="1"></label></div>
+<button class="on" id="save-sv" onclick="saveServo()" style="width:100%;margin-top:10px">Save servo angles</button></div>
 <button onclick="logout()" style="width:100%;background:transparent;color:var(--mut)">Change login</button>
 </div>
 <script>
@@ -71,13 +76,13 @@ function saveLogin(){
 function logout(){try{localStorage.removeItem('hv')}catch(e){} if(client)client.end(); $('app').hidden=true;$('login').hidden=false}
 function cmd(k,v){if(client)client.publish('heater/cmd/'+k,String(v))}
 const DAYS=[['M',1],['T',2],['W',3],['T',4],['F',5],['S',6],['S',0]];
-let dirtyS=false,dirtyT=false,slotState=[],pending={};
-const LABEL={sched:'Save schedule',thermo:'Save thermostat'};
-const BTN={sched:'save-sched',thermo:'save-th'};
+let dirtyS=false,dirtyT=false,dirtyV=false,slotState=[],pending={};
+const LABEL={sched:'Save schedule',thermo:'Save thermostat',angles:'Save servo angles'};
+const BTN={sched:'save-sched',thermo:'save-th',angles:'save-sv'};
 function sendSave(kind,payload){
   if(!client||!client.connected){$(BTN[kind]).textContent='Not connected, try again';return}
   pending[kind]={payload,t:Date.now()};
-  $(BTN[kind]).textContent='Saving…';
+  $(BTN[kind]).textContent='Saving‚Ä¶';
   client.publish('heater/cmd/'+kind,payload,{qos:1},err=>{if(err)$(BTN[kind]).textContent='Send failed, try again'});
   setTimeout(()=>{if(pending[kind]&&pending[kind].payload===payload){delete pending[kind];$(BTN[kind]).textContent='Sent, but the device did not confirm';setTimeout(()=>$(BTN[kind]).textContent=LABEL[kind],4000)}},8000);
 }
@@ -85,7 +90,7 @@ function confirmed(kind,got){
   const p=pending[kind];if(!p)return false;
   const norm=x=>x.split(/[;,]/).map(Number).join(',');
   if(norm(p.payload)!==norm(got))return false;
-  delete pending[kind];$(BTN[kind]).textContent='Saved ✓ (device confirmed)';
+  delete pending[kind];$(BTN[kind]).textContent='Saved ‚úì (device confirmed)';
   setTimeout(()=>$(BTN[kind]).textContent=LABEL[kind],3000);return true;
 }
 function pad(n){return String(n).padStart(2,'0')}
@@ -116,6 +121,12 @@ function saveSched(){
   }).join(';');
   sendSave('sched',out);dirtyS=false;
 }
+function drawServo(str){const [c,o]=str.split(',');$('sv-closed').value=c;$('sv-open').value=o}
+function saveServo(){
+  const cl=v=>Math.min(180,Math.max(0,parseInt(v)||0));
+  sendSave('angles',cl($('sv-closed').value)+','+cl($('sv-open').value));dirtyV=false;
+}
+['sv-closed','sv-open'].forEach(id=>$(id).addEventListener('input',()=>dirtyV=true));
 function hm(min){min=Number(min);return pad(Math.floor(min/60))+':'+pad(min%60)}
 function toMin(t){const [h,m]=(t||'00:00').split(':').map(Number);return h*60+m}
 function drawThermo(str){
@@ -135,6 +146,8 @@ function render(d){
   ['auto','open','close'].forEach(m=>$('b-'+m).className=d.mode==m?'on':'');
   if(d.sched)confirmed('sched',d.sched);
   if(d.thermoCfg)confirmed('thermo',d.thermoCfg);
+  if(d.angles)confirmed('angles',d.angles);
+  if(!dirtyV&&!pending.angles&&d.angles)drawServo(d.angles);
   if(!dirtyS&&!pending.sched&&d.sched)drawSlots(d.sched);
   if(!dirtyT&&!pending.thermo&&d.thermoCfg)drawThermo(d.thermoCfg);
 }
@@ -144,7 +157,7 @@ function start(l){
   client=mqtt.connect('wss://'+l.host+':8084/mqtt',{username:l.user,password:l.pass,reconnectPeriod:3000});
   client.on('connect',()=>{$('conn').textContent='connected to broker';client.subscribe('heater/status')});
   client.on('error',e=>{$('conn').textContent='error: '+e.message});
-  client.on('close',()=>{$('conn').textContent='disconnected, retrying…'});
+  client.on('close',()=>{$('conn').textContent='disconnected, retrying‚Ä¶'});
   client.on('message',(t,m)=>{try{render(JSON.parse(m.toString()))}catch(e){}});
 }
 setInterval(()=>{if(lastSeen&&Date.now()-lastSeen>15000&&client&&client.connected)$('conn').textContent='broker OK, device offline (last update '+Math.round((Date.now()-lastSeen)/1000)+'s ago)'},2000);
