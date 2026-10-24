@@ -36,7 +36,7 @@ small{color:var(--mut)}
  <button class="on" onclick="saveLogin()" style="margin-top:8px;width:100%">Connect</button>
 </div>
 <div id="app" hidden>
-<div class="card"><small>Temperature</small><div class="big"><span id="t">--</span>&deg;C</div>
+<div class="card"><small><b id="dev"></b> &middot; Temperature</small><div class="big"><span id="t">--</span>&deg;C</div>
 <small>Humidity <span id="h">--</span>% &middot; Device time <span id="tm">--</span></small><br>
 <small id="conn">connecting&hellip;</small></div>
 <div class="card"><small>Heater valve</small><br><span id="st" class="badge">--</span>
@@ -66,6 +66,10 @@ small{color:var(--mut)}
 <script>
 const $=id=>document.getElementById(id);
 let client, lastSeen=0;
+// The MQTT login decides which heater this page controls. Add one line per extra device.
+const DEVICES={home:'heater2'};            // username -> topic prefix; any other login gets 'heater'
+const NAMES={heater:'Heater',heater2:'Home heater'};
+let DEV='heater';
 function getLogin(){try{return JSON.parse(localStorage.getItem('hv'))}catch(e){return null}}
 function saveLogin(){
   const l={host:$('host').value.trim(),user:$('user').value.trim(),pass:$('pass').value};
@@ -74,7 +78,7 @@ function saveLogin(){
   start(l);
 }
 function logout(){try{localStorage.removeItem('hv')}catch(e){} if(client)client.end(); $('app').hidden=true;$('login').hidden=false}
-function cmd(k,v){if(client)client.publish('heater/cmd/'+k,String(v))}
+function cmd(k,v){if(client)client.publish(DEV+'/cmd/'+k,String(v))}
 const DAYS=[['M',1],['T',2],['W',3],['T',4],['F',5],['S',6],['S',0]];
 let dirtyS=false,dirtyT=false,dirtyV=false,slotState=[],pending={};
 const LABEL={sched:'Save schedule',thermo:'Save thermostat',angles:'Save servo angles'};
@@ -83,7 +87,7 @@ function sendSave(kind,payload){
   if(!client||!client.connected){$(BTN[kind]).textContent='Not connected, try again';return}
   pending[kind]={payload,t:Date.now()};
   $(BTN[kind]).textContent='Saving\u2026';
-  client.publish('heater/cmd/'+kind,payload,{qos:1},err=>{if(err)$(BTN[kind]).textContent='Send failed, try again'});
+  client.publish(DEV+'/cmd/'+kind,payload,{qos:1},err=>{if(err)$(BTN[kind]).textContent='Send failed, try again'});
   setTimeout(()=>{if(pending[kind]&&pending[kind].payload===payload){delete pending[kind];$(BTN[kind]).textContent='Sent, but the device did not confirm';setTimeout(()=>$(BTN[kind]).textContent=LABEL[kind],4000)}},8000);
 }
 function confirmed(kind,got){
@@ -154,8 +158,11 @@ function render(d){
 function start(l){
   $('login').hidden=true;$('app').hidden=false;
   if(client)client.end();
+  DEV=DEVICES[l.user.toLowerCase()]||'heater';
+  $('dev').textContent=NAMES[DEV]||DEV;document.title=(NAMES[DEV]||DEV)+' Remote';
+  lastSeen=0;pending={};dirtyS=dirtyT=dirtyV=false;
   client=mqtt.connect('wss://'+l.host+':8084/mqtt',{username:l.user,password:l.pass,reconnectPeriod:3000});
-  client.on('connect',()=>{$('conn').textContent='connected to broker';client.subscribe('heater/status')});
+  client.on('connect',()=>{$('conn').textContent='connected to broker';client.subscribe(DEV+'/status')});
   client.on('error',e=>{$('conn').textContent='error: '+e.message});
   client.on('close',()=>{$('conn').textContent='disconnected, retrying\u2026'});
   client.on('message',(t,m)=>{try{render(JSON.parse(m.toString()))}catch(e){}});
