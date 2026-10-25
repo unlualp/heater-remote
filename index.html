@@ -50,8 +50,8 @@ small{color:var(--mut)}
 <div class="card"><b>Thermostat</b><br><small>Opens when the room is colder than the minimum, only between the active times.</small>
 <label class="chk"><input id="th-on" type="checkbox"> Enabled</label>
 <div class="grid">
-<label>Minimum &deg;C<input id="th-min" type="number" step="0.5" min="5" max="35"></label>
-<label>Closes again at +&deg;C<input id="th-hyst" type="number" step="0.5" min="0.5" max="5"></label>
+<label>Minimum &deg;C<input id="th-min" type="number" step="0.1" min="5" max="35"></label>
+<label>Closes again at +&deg;C<input id="th-hyst" type="number" step="0.1" min="0.1" max="5"></label>
 <label>Active from<input id="th-from" type="time"></label>
 <label>Active until<input id="th-to" type="time"></label></div>
 <small>To run overnight, set "from" later than "until" (for example 22:00 to 06:00). Same time in both means all day.</small>
